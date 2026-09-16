@@ -56,6 +56,7 @@ class SppMulti {
  private:
   SppSlot *slotByHandle(uint32_t handle);
   SppSlot *freeSlot();
+  SppSlot *stalestSlot(uint32_t nowMs);
   void releaseSlot(SppSlot &slot);
   void advertise();
 
@@ -68,4 +69,5 @@ class SppMulti {
   StreamBufferHandle_t _uplink = nullptr;
   uint32_t _lastAnyDrainMs = 0;
   uint32_t _rejected = 0;
+  uint32_t _evicted = 0;
 };

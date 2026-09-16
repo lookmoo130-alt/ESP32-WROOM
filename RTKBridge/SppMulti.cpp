@@ -106,6 +106,23 @@ SppSlot *SppMulti::freeSlot() {
   return nullptr;
 }
 
+// The session that has gone longest without moving data - the one whose owner
+// is least likely to notice losing it. A slot still being handed to a newcomer
+// is off limits, or two arrivals in quick succession would cancel each other.
+SppSlot *SppMulti::stalestSlot(uint32_t nowMs) {
+  SppSlot *victim = nullptr;
+  uint32_t worst = 0;
+  for (auto &slot : _slots) {
+    if (slot.handle == 0 || slot.pendingOpen) continue;
+    uint32_t idleFor = nowMs - slot.lastDrainMs;
+    if (!victim || idleFor >= worst) {
+      worst = idleFor;
+      victim = &slot;
+    }
+  }
+  return victim;
+}
+
 void SppMulti::releaseSlot(SppSlot &slot) {
   slot.handle = 0;
   slot.pendingOpen = false;
@@ -129,13 +146,24 @@ void SppMulti::onSpp(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
       break;
 
     case ESP_SPP_SRV_OPEN_EVT: {
+      uint32_t now = millis();
+      uint32_t victimHandle = 0;
+
       portENTER_CRITICAL(&_mux);
       SppSlot *slot = freeSlot();
+      if (!slot) {
+        // Newest wins: a device knocking is proof it wants a session now, and
+        // the stalest existing one is the cheaper thing to give up. The victim
+        // keeps its handle only long enough for us to hang up on it below; its
+        // later close event finds no slot and harmlessly does nothing.
+        slot = stalestSlot(now);
+        if (slot) victimHandle = slot->handle;
+      }
       if (slot) {
         memcpy(slot->addr, param->srv_open.rem_bda, 6);
         slot->handle = param->srv_open.handle;
         slot->pendingOpen = true;
-        slot->lastRxMs = millis();
+        slot->lastRxMs = now;
       }
       portEXIT_CRITICAL(&_mux);
 
@@ -143,6 +171,13 @@ void SppMulti::onSpp(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
         _rejected++;
         esp_spp_disconnect(param->srv_open.handle);
         break;
+      }
+      if (victimHandle) {
+        _evicted++;
+        log_w("SPP table full - evicting handle %u for the new device",
+              (unsigned)victimHandle);
+        if (_arbiter) _arbiter->release(victimHandle);
+        esp_spp_disconnect(victimHandle);
       }
       // Stay connectable so the next device is not locked out by this one.
       advertise();
@@ -320,5 +355,6 @@ void SppMulti::printStatus(Stream &s) const {
              (unsigned long long)slot.bytesIn, (unsigned long long)slot.bytesDropped,
              (unsigned)slot.ring.used(), slot.congested ? " CONGESTED" : "");
   }
+  if (_evicted) s.printf("  SPP evicted for newer devices: %u\n", (unsigned)_evicted);
   if (_rejected) s.printf("  SPP rejected (table full): %u\n", (unsigned)_rejected);
 }

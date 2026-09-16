@@ -20,9 +20,27 @@
 #define BT_DEVICE_NAME    "RTK-Bridge"
 #define SPP_SERVER_NAME   "RTK"
 
-// Table size. The real ceiling is BTA_JV_MAX_RFC_SR_SESSION in the Bluedroid
-// build shipped with the core (usually 3); extra slots simply stay empty.
-#define SPP_MAX_CLIENTS   4
+// How many sessions this firmware will track.
+//
+// There are TWO ceilings, and only the lower one is ours. Bluedroid enforces
+// BTA_JV_MAX_RFC_SR_SESSION (compiled into the core, usually 3), and when that
+// is reached it refuses the incoming connection at the RFCOMM layer. We never
+// get an open event, so we cannot evict anyone to make room - we do not even
+// learn that a device knocked. Those refusals produce no log line at all.
+//
+// So the newest-wins eviction below only fires when OUR table fills first,
+// which means it only fires if this number is set BELOW the stack's ceiling.
+// That is the trade-off:
+//
+//   3 (default) - maximum capacity. A device arriving when the stack is full
+//                 is silently refused. Fine in practice: a crashed peer is
+//                 already reaped within STALL_TIMEOUT_MS, which frees a slot.
+//   2           - guarantees a new device always gets in by evicting the
+//                 stalest session, at the cost of one slot of capacity.
+//
+// Measure the real ceiling on the bench before changing this: connect phones
+// one at a time and watch the "clients spp=" line stop going up.
+#define SPP_MAX_CLIENTS   3
 #define SPP_TX_CHUNK      512     // well under the ~990 byte SPP MTU
 
 // ---------------------------------------------------------------------------
