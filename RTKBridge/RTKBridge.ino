@@ -26,6 +26,8 @@
 
 #if ENABLE_WIFI_BRIDGE
 #include "TcpBridge.h"
+#else
+#include "esp_wifi.h"
 #endif
 
 static HardwareSerial GNSS(GNSS_UART_NUM);
@@ -179,6 +181,9 @@ void setup() {
   delay(200);
   Serial.println("\nRTK Bridge starting");
 
+  setCpuFrequencyMhz(CPU_FREQ_MHZ);
+  Serial.printf("CPU %u MHz\n", (unsigned)getCpuFrequencyMhz());
+
   pinMode(STATUS_LED_PIN, OUTPUT);
   digitalWrite(STATUS_LED_PIN, LOW);
 
@@ -210,6 +215,13 @@ void setup() {
     Serial.printf("WiFi AP \"%s\" -> %s:%d\n", WIFI_AP_SSID,
                   WiFi.softAPIP().toString().c_str(), TCP_PORT);
   }
+#else
+  // This build never touches the WiFi driver, so the radio should never come
+  // up. Tear it down anyway in case a previous sketch left credentials in NVS
+  // - both calls simply report "not initialised" when there is nothing to stop.
+  esp_wifi_stop();
+  esp_wifi_deinit();
+  Serial.println("WiFi compiled out - Bluetooth only");
 #endif
 
   // Pinned to core 1, above the Arduino loop task, so the radio stacks on core

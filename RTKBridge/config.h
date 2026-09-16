@@ -26,10 +26,16 @@
 #define SPP_TX_CHUNK      512     // well under the ~990 byte SPP MTU
 
 // ---------------------------------------------------------------------------
-// WiFi bridge - the dependable path to many simultaneous devices.
-// Set to 0 to build a Bluetooth-only firmware.
+// WiFi bridge. Off by default: AP mode beacons every 100 ms whether or not
+// anyone is attached, averaging 80-120 mA, which is more than the Bluetooth
+// radio itself draws and a large bite out of a 500 mA USB budget. At the
+// 3-5 kB/s this link carries, SPP has bandwidth to spare.
+//
+// The cost of leaving it off is the client ceiling: without TCP the number of
+// simultaneous displays is whatever Bluedroid grants (usually 3). Set to 1 to
+// get the scalable path back.
 // ---------------------------------------------------------------------------
-#define ENABLE_WIFI_BRIDGE 1
+#define ENABLE_WIFI_BRIDGE 0
 #define WIFI_AP_SSID       "RTK-Bridge"
 #define WIFI_AP_PASSWORD   "rtk123456"   // must be >= 8 characters
 #define WIFI_AP_CHANNEL    6
@@ -67,6 +73,12 @@
 // half a sentence. Set to 0 if you configure the UM981 for binary output.
 #define LINE_FRAMED_DOWNLINK 1
 #define MAX_LINE_LEN       512
+
+// 240 MHz is the safe default. 80 MHz saves another 20-30 mA and is still
+// ample for this workload, but it is the floor for Bluetooth and the lowest
+// setting that keeps the APB clock - and therefore the UART baud rate -
+// correct. Do not go below it.
+#define CPU_FREQ_MHZ       240
 
 #define WDT_TIMEOUT_S      10
 #define STATUS_PERIOD_MS   5000

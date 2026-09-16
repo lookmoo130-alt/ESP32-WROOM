@@ -75,12 +75,17 @@ GPIO16 พังได้ ยืนยันก่อนต่อ
 
 | ตัวกิน | กระแส |
 |---|---|
-| ESP32 (BT Classic + WiFi พร้อมกัน) | ~250-350 mA พีคตอน WiFi TX แตะ ~500 mA |
+| ESP32, Bluetooth อย่างเดียว (**ค่า default**) | ~30-50 mA |
+| ESP32, ถ้าเปิด WiFi AP ด้วย | +80-120 mA พีคตอน TX แตะ ~500 mA |
 | UM981 (multi-band RTK) | ~100-200 mA |
 | เสาอากาศ active (LNA) | ~20-50 mA |
 
-USB 2.0 จ่ายได้ 500 mA — **เกินงบ** ผลคือ brownout reset สุ่มๆ ซึ่งหน้าตาเหมือนอาการ
-"หลุดเอง" ที่เฟิร์มแวร์นี้แก้อยู่พอดี ทำให้ไล่บั๊กผิดตัว
+USB 2.0 จ่ายได้ 500 mA เฟิร์มแวร์นี้จึง **ปิด WiFi มาตั้งแต่ต้น** (`ENABLE_WIFI_BRIDGE 0`)
+เพราะ AP mode ยิง beacon ทุก 100 ms ตลอดเวลาไม่ว่าจะมีใครต่อหรือไม่ กินมากกว่าตัว
+Bluetooth เองเสียอีก ขณะที่ข้อมูลจริงแค่ 3-5 kB/s ซึ่ง SPP เหลือเฟือ
+
+ถ้าเปิด WiFi แล้วไฟไม่พอ จะเจอ brownout reset สุ่มๆ ซึ่งหน้าตาเหมือนอาการ "หลุดเอง"
+ที่เฟิร์มแวร์นี้แก้อยู่พอดี ทำให้ไล่บั๊กผิดตัว
 
 แยกให้ขาดจาก serial console:
 
@@ -104,7 +109,8 @@ bootloader ใช้ GPIO1/3 (TX0/RX0) ผ่าน CP2102 คนละคู่
 
 **ทาง Bluetooth** — จับคู่กับ `RTK-Bridge` แล้วต่อ SPP เหมือนเดิม โค้ดฝั่งแอปไม่ต้องแก้
 
-**ทาง WiFi (แนะนำถ้าต้องการหลายเครื่อง)**
+**ทาง WiFi — ปิดอยู่ตาม default** ถ้าต้องการให้ตั้ง `ENABLE_WIFI_BRIDGE 1` ใน `config.h`
+แล้วแฟลชใหม่ จะได้:
 
 ```
 SSID : RTK-Bridge
@@ -112,6 +118,8 @@ Pass : rtk123456
 IP   : 192.168.4.1
 Port : 2947
 ```
+
+เปิดเมื่อจำเป็นจริงๆ เท่านั้น เพราะแลกมาด้วยไฟ ~80-120 mA
 
 ---
 
@@ -127,7 +135,7 @@ Port : 2947
 | หัวข้อ | ค่า | เหตุผล |
 |---|---|---|
 | Board | ESP32 Dev Module | |
-| **Partition Scheme** | **Minimal SPIFFS (1.9MB APP)** | BT Classic + WiFi ใส่ partition default ไม่ลง |
+| **Partition Scheme** | **Minimal SPIFFS (1.9MB APP)** | เผื่อไว้ พอเปิด WiFi แล้ว partition default ใส่ไม่ลง |
 | **Core Debug Level** | **Info** | ถ้าต่ำกว่านี้จะไม่เห็นบรรทัด connect / stall / drop |
 | Upload Speed | 921600 | |
 
@@ -173,8 +181,11 @@ adb shell am force-stop <package-name>
   จะสั่งตัดที่ 6 วิและยึด slot คืนที่ 9 วิอยู่ดี
 - ถ้าตั้ง UM981 ให้ส่ง **ข้อมูลไบนารี** ลงมาด้วย ต้องตั้ง `LINE_FRAMED_DOWNLINK 0`
   ไม่งั้นการตัดตามบรรทัดจะตีความผิด
-- เปิด WiFi + Bluetooth พร้อมกันใช้ coexistence ของ ESP32 ที่ ~5 kB/s ไม่มีปัญหา
-  แต่ถ้าอยากตัดตัวแปรทิ้งให้ตั้ง `ENABLE_WIFI_BRIDGE 0`
+- **WiFi ปิดตาม default** ผลคือจำนวนเครื่องที่ต่อพร้อมกันได้ขึ้นกับเพดานของ Bluedroid
+  ล้วนๆ ถ้าวันหนึ่งต้องการเกินนั้นให้เปิด `ENABLE_WIFI_BRIDGE 1` (แลกกับไฟ ~80-120 mA)
+  เปิดพร้อม Bluetooth ได้ ตัว coexistence ของ ESP32 รับไหวสบายที่ ~5 kB/s
+- ถ้าไฟยังตึงอยู่ ลดได้อีก 20-30 mA ด้วย `CPU_FREQ_MHZ 80` — **ห้ามต่ำกว่า 80**
+  เพราะเป็นทั้งขั้นต่ำของ Bluetooth และจุดที่ APB clock ยังเลี้ยง baud rate ได้ถูกต้อง
 - `ByteRing` ผ่าน unit test บนเครื่อง host แล้ว (ASan/UBSan) แต่**ตัวเฟิร์มแวร์เต็มยัง
   ไม่ได้คอมไพล์** เพราะ environment ที่เขียนเข้าถึง PlatformIO registry ไม่ได้
   กรุณา `pio run` ยืนยันก่อนแฟลชจริง

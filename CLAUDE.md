@@ -16,6 +16,8 @@
   `Brownout detector was triggered` หรือเห็น `RTK Bridge starting` ซ้ำเรื่อยๆ
   ใน serial = ไฟไม่พอ ไม่ใช่บั๊ก
 - แฟลชได้โดยไม่ต้องถอด UM981: bootloader ใช้ GPIO1/3 คนละคู่กับ GPIO16/17
+- **WiFi ปิดตาม default** (`ENABLE_WIFI_BRIDGE 0`) เพื่อประหยัดไฟ ~80-120 mA
+  ที่ AP mode กินจากการยิง beacon อย่าเปิดคืนโดยไม่ได้ถูกขอ
 - ข้อมูลลง: NMEA GGA/RMC/VTG ที่ 10 Hz + GSV/GST/GSA ที่ 1 Hz ≈ 3-5 kB/s
 - ข้อมูลขึ้น: RTCM จาก NTRIP บนมือถือ
 
@@ -63,13 +65,12 @@ adb shell am force-stop <package-name>
 คอมมีสองเส้นทางที่แยกกัน: **USB → ESP32** (แฟลช + อ่าน serial) และ **ADB → จอ**
 (สั่ง force-stop, อ่าน logcat) การแฟลชวิ่งผ่าน USB เท่านั้น ไม่เกี่ยวกับ ADB เลย
 
-แต่ถ้าทดสอบทาง TCP จอจะต้องเข้า AP `RTK-Bridge` (192.168.4.x) ซึ่งทำให้มันหลุดจาก
-WiFi บ้าน แล้ว `adb connect` จะหาไม่เจอ เลือกอย่างใดอย่างหนึ่ง:
+ตาม default ปัญหานี้ไม่เกิด เพราะ `ENABLE_WIFI_BRIDGE 0` — จอกับคอมอยู่ WiFi บ้าน
+ตามปกติ ADB ทำงานได้ไม่สะดุด
 
-- ทดสอบทาง Bluetooth: ปล่อยจอกับคอมอยู่ WiFi บ้าน ADB ทำงานปกติ
-  (ตั้ง `ENABLE_WIFI_BRIDGE 0` เพื่อตัดตัวแปรทิ้งได้)
-- ทดสอบทาง TCP: ให้คอมเข้า AP `RTK-Bridge` ด้วย แล้ว `adb connect 192.168.4.x:5555`
-  (AP รับได้ 4 เครื่อง) ระหว่างนั้นคอมจะไม่มีเน็ต
+จะเจอก็ต่อเมื่อเปิด WiFi เอง: จอต้องเข้า AP `RTK-Bridge` (192.168.4.x) ซึ่งทำให้หลุดจาก
+WiFi บ้าน แล้ว `adb connect` หาไม่เจอ ทางออกคือให้คอมเข้า AP ด้วย แล้ว
+`adb connect 192.168.4.x:5555` (AP รับได้ 4 เครื่อง) ระหว่างนั้นคอมจะไม่มีเน็ต
 
 USB console (`Serial`, 115200) แยกขาจาก UART2 ที่คุยกับ UM981 อ่าน log ได้โดยไม่รบกวน
 ข้อมูล GNSS
