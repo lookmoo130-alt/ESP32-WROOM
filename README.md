@@ -80,11 +80,27 @@ Port : 2947
 
 ---
 
-## Build
+## โครงสร้างโปรเจกต์
+
+`RTKBridge/` เป็น sketch folder ของ Arduino IDE และ `platformio.ini` ก็ชี้มาที่โฟลเดอร์เดียวกัน
+**ซอร์สมีชุดเดียว** เปิดด้วย toolchain ไหนก็ได้ ไม่ต้องคอยซิงก์สองชุด
+
+## Build — Arduino IDE
+
+เปิด `RTKBridge/RTKBridge.ino` แล้วตั้งค่าตามนี้:
+
+| หัวข้อ | ค่า | เหตุผล |
+|---|---|---|
+| Board | ESP32 Dev Module | |
+| **Partition Scheme** | **Minimal SPIFFS (1.9MB APP)** | BT Classic + WiFi ใส่ partition default ไม่ลง |
+| **Core Debug Level** | **Info** | ถ้าต่ำกว่านี้จะไม่เห็นบรรทัด connect / stall / drop |
+| Upload Speed | 921600 | |
+
+## Build — บรรทัดคำสั่ง
 
 ```bash
-pio run -t upload
-pio device monitor
+tools/flash-and-watch.sh /dev/ttyUSB0 30     # arduino-cli: compile + flash + ดู serial
+pio run -t upload && pio device monitor      # หรือทาง platformio
 ```
 
 log จะพิมพ์ทุก 5 วินาที บอกจำนวน client, ไบต์ที่ส่ง/ทิ้ง, คิวค้าง และ heap
@@ -99,6 +115,13 @@ log จะพิมพ์ทุก 5 วินาที บอกจำนวน
 2. **Force stop** แอปจาก Settings (อย่ากดปิดปกติ — ต้องให้มันตายแบบไม่ปิด socket)
 3. ดู serial monitor จะขึ้น `stalled for ... - dropping it` ภายใน ~6 วินาที
 4. เปิดแอปต่อกลับ — ต้องติดทันที ไม่ต้องแตะบอร์ด
+
+**สำคัญ: ต้อง Force stop เท่านั้น** ถ้ากดปิดแอปตามปกติ Android จะปิด socket ให้เรียบร้อย
+ซึ่งไม่ใช่อาการที่เรากำลังแก้ ถ้ามี adb สั่งจากคอมได้เลย:
+
+```bash
+adb shell am force-stop <package-name>
+```
 
 ทดสอบ multi-device: ต่อเครื่องที่สอง (และสาม) พร้อมกัน ดูบรรทัด `clients spp=N tcp=M`
 
