@@ -9,7 +9,13 @@
 ## ฮาร์ดแวร์
 
 - ESP32-WROOM-32 DevKit 38 pin, ชิป USB เป็น CP2102 (ไม่ใช่ WROVER — GPIO16/17 จึงว่าง)
-- UM981 ต่อ UART2: GPIO16 = RX2, GPIO17 = TX2, 230400 baud, ต้องต่อ GND ร่วม
+- UM981 ต่อ UART2 แบบไขว้: UM981 TX → GPIO16 (RX2), UM981 RX → GPIO17 (TX2),
+  230400 baud, ต้องต่อ GND ร่วม
+- **ก่อนโทษเฟิร์มแวร์เรื่องหลุด ให้ตัดเรื่องไฟออกก่อน** ถ้าจ่ายไฟ UM981 จาก pin 5V
+  ของ ESP32 ขณะเสียบ USB ทั้งระบบกินเกิน 500 mA ที่ USB 2.0 จ่ายได้ เจอ
+  `Brownout detector was triggered` หรือเห็น `RTK Bridge starting` ซ้ำเรื่อยๆ
+  ใน serial = ไฟไม่พอ ไม่ใช่บั๊ก
+- แฟลชได้โดยไม่ต้องถอด UM981: bootloader ใช้ GPIO1/3 คนละคู่กับ GPIO16/17
 - ข้อมูลลง: NMEA GGA/RMC/VTG ที่ 10 Hz + GSV/GST/GSA ที่ 1 Hz ≈ 3-5 kB/s
 - ข้อมูลขึ้น: RTCM จาก NTRIP บนมือถือ
 
