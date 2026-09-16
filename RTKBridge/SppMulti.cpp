@@ -22,7 +22,12 @@ static void gapCallback(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *para
 }
 
 static void setDeviceName(const char *name) {
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+// esp_bt_gap_set_device_name landed in IDF 5.2, not 5.0 - verified against the
+// real headers for v4.4, v5.0, v5.1, v5.2, v5.3 and v5.4. Guarding at 5.0
+// breaks the build on arduino-esp32 3.0/3.1, which ship IDF 5.1. The older
+// esp_bt_dev_set_device_name exists in every version and is only deprecated
+// from 5.3 on, so it stays the fallback.
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
   esp_bt_gap_set_device_name(name);
 #else
   esp_bt_dev_set_device_name(name);
@@ -278,7 +283,7 @@ void SppMulti::poll(uint32_t nowMs) {
       if (n > 0) {
         uint32_t handle = slot.handle;
         slot.writeBusy = true;
-        if (esp_spp_write(handle, n, slot.inflight) == ESP_OK) {
+        if (esp_spp_write(handle, (int)n, slot.inflight) == ESP_OK) {
           slot.ring.consume(n);
           slot.lastDrainMs = nowMs;
           _lastAnyDrainMs = nowMs;

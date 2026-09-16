@@ -22,25 +22,31 @@
 
 // How many sessions this firmware will track.
 //
-// There are TWO ceilings, and only the lower one is ours. Bluedroid enforces
-// BTA_JV_MAX_RFC_SR_SESSION (compiled into the core, usually 3), and when that
-// is reached it refuses the incoming connection at the RFCOMM layer. We never
-// get an open event, so we cannot evict anyone to make room - we do not even
-// learn that a device knocked. Those refusals produce no log line at all.
+// The real ceiling is TWO, and it is not ours to raise. Verified by reading the
+// sdkconfig that arduino-esp32 ships (checked on 2.0.17 and on the 3.x libs for
+// IDF 5.1, both identical):
 //
-// So the newest-wins eviction below only fires when OUR table fills first,
-// which means it only fires if this number is set BELOW the stack's ceiling.
-// That is the trade-off:
+//   CONFIG_BTDM_CTRL_BR_EDR_MAX_ACL_CONN = 2   <- the binding limit
+//   CONFIG_BT_ACL_CONNECTIONS            = 4   <- host side, never reached
 //
-//   3 (default) - maximum capacity. A device arriving when the stack is full
-//                 is silently refused. Fine in practice: a crashed peer is
-//                 already reaped within STALL_TIMEOUT_MS, which frees a slot.
-//   2           - guarantees a new device always gets in by evicting the
-//                 stalest session, at the cost of one slot of capacity.
+// The Bluetooth CONTROLLER holds at most two BR/EDR links. A third device is
+// turned away below the host stack, so no open event reaches this code: we
+// cannot evict anyone for it because we never learn it knocked, and nothing is
+// logged. Raising it means rebuilding the controller library, which is out of
+// reach from the Arduino toolchain.
 //
-// Measure the real ceiling on the bench before changing this: connect phones
-// one at a time and watch the "clients spp=" line stop going up.
-#define SPP_MAX_CLIENTS   3
+// That makes this the choice:
+//
+//   2 (default) - both links usable. Eviction can never fire, which costs
+//                 nothing in the case that matters: with a single display the
+//                 second slot is always free, so a crashed app reconnects
+//                 INSTANTLY into it while the reaper clears the zombie behind
+//                 it a few seconds later.
+//   1           - one display, but an arriving device always gets in by
+//                 evicting whoever holds the slot. Only worth it if you ever
+//                 see a healthy-but-idle peer squatting both links.
+//
+#define SPP_MAX_CLIENTS   2
 #define SPP_TX_CHUNK      512     // well under the ~990 byte SPP MTU
 
 // ---------------------------------------------------------------------------
